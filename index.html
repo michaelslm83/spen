@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F3F4F6">
+<title>נוטפאד S Pen</title>
+<meta name="description" content="נוטפאד לכתיבה בעט S Pen: כתב יד חלק, מחק בכפתור העט, שמירה כ-PDF.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FCFCFA; --chrome:#F3F4F6; --chrome-2:#E7E9ED; --line:#D9DDE3;
+  --text:#24272C; --muted:#6A707A; --ink:#27348B; --ink-soft:#E3E7F7; --danger:#C62828;
+  --topH:56px; --trayH:72px; --r-s:10px; --r-m:14px; --r-l:20px;
+  --shadow:0 12px 40px rgb(20 24 40 / .18);
+  font-family:"Assistant",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+}
+[data-theme=dark]{
+  --paper:#16181C; --chrome:#1E2126; --chrome-2:#2A2E35; --line:#30353D;
+  --text:#E9EBEF; --muted:#9AA1AC; --ink:#9DAEFF; --ink-soft:#2A3150; --danger:#FF7A7A;
+  --shadow:0 12px 40px rgb(0 0 0 / .5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--chrome);color:var(--text);-webkit-user-select:none;user-select:none;overscroll-behavior:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* ---- docked chrome ---- */
+#top{position:fixed;top:0;left:0;right:0;height:calc(var(--topH) + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(6px,env(safe-area-inset-right)) 0 max(6px,env(safe-area-inset-left));display:flex;align-items:center;gap:2px;background:var(--chrome);border-bottom:1px solid var(--line);z-index:5}
+#bottom{position:fixed;bottom:0;left:0;right:0;height:calc(var(--trayH) + env(safe-area-inset-bottom));padding:0 max(8px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-left));display:flex;align-items:flex-end;justify-content:space-between;gap:6px;background:var(--chrome);border-top:1px solid var(--line);z-index:5}
+#stage{position:fixed;left:0;right:0;top:calc(var(--topH) + env(safe-area-inset-top));bottom:calc(var(--trayH) + env(safe-area-inset-bottom));touch-action:none;background:var(--paper);overflow:hidden}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+
+.ib{width:44px;height:44px;flex:none;border:0;border-radius:var(--r-m);background:transparent;display:grid;place-items:center;padding:0;cursor:pointer;transition:background-color .15s}
+.ib:hover{background:var(--chrome-2)}
+.ib:active{background:var(--line)}
+.ib svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib:disabled{opacity:.3;cursor:default;background:transparent}
+#title{flex:1;min-width:0;height:44px;border:0;background:transparent;border-radius:var(--r-m);display:flex;align-items:center;gap:6px;padding:0 8px;font-size:17px;font-weight:600;cursor:pointer;text-align:right}
+#title span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#title svg{width:18px;height:18px;flex:none;fill:none;stroke:var(--danger);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:none}
+#title.locked svg{display:block}
+#title:hover{background:var(--chrome-2)}
+#bZoom{width:auto;min-width:52px;padding:0 8px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;direction:ltr;background:var(--ink-soft);color:var(--ink)}
+#bZoom.hide{display:none}
+
+/* ---- the pen tray ---- */
+.tools{display:flex;align-items:flex-end;gap:2px;height:100%}
+.tool{width:48px;height:72px;border:0;background:transparent;padding:0;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.tool svg{width:34px;height:70px;transform:translateY(20px);transition:transform .22s cubic-bezier(.3,.7,.3,1)}
+.tool:hover svg{transform:translateY(16px)}
+.tool.on svg{transform:translateY(4px)}
+.tool .body{fill:#FFFFFF;stroke:#8A909A;stroke-width:1.2}
+.tool.on .body{stroke:var(--text);stroke-width:1.5}
+[data-theme=dark] .tool .body{fill:#3A3F48;stroke:#6E7480}
+[data-theme=dark] .tool.on .body{fill:#4A505B;stroke:var(--text)}
+.tool .band{fill:#D5D9E0}
+[data-theme=dark] .tool .band{fill:#2A2E35}
+.tool .tip{stroke:none}
+.tray-mid{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;height:var(--trayH);min-width:0}
+.sw{width:40px;height:44px;flex:none;border:0;background:transparent;padding:0;cursor:pointer;display:grid;place-items:center}
+.sw i{width:26px;height:26px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .12);transition:transform .15s}
+.sw.on i{box-shadow:0 0 0 2px var(--chrome),0 0 0 4px var(--text);transform:scale(.92)}
+#bWidth i{background:var(--paper);box-shadow:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;border:1.5px solid var(--muted)}
+#bWidth i b{display:block;border-radius:50%;background:var(--text)}
+.segs{display:flex;background:var(--chrome-2);border-radius:var(--r-m);padding:3px;gap:2px}
+.segs button{border:0;background:transparent;border-radius:11px;padding:0 14px;height:38px;font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap}
+.segs button.on{background:var(--paper);box-shadow:0 1px 3px rgb(0 0 0 / .15);font-weight:600}
+
+/* ---- empty state ---- */
+#hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,80vw);text-align:center;color:var(--muted);font-size:15px;line-height:1.75;pointer-events:none;transition:opacity .3s}
+#hint b{display:block;color:var(--text);font-size:20px;font-weight:600;margin-bottom:10px}
+#hint.off{opacity:0}
+
+/* ---- popovers, sheets, dialogs ---- */
+#scrim{position:fixed;inset:0;background:rgb(10 12 20 / .32);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#scrim.on{opacity:1;pointer-events:auto}
+#scrim.clear{background:transparent}
+.pop{position:fixed;z-index:10;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:8px;display:none}
+.pop.on{display:block}
+#widthPop{bottom:calc(var(--trayH) + env(safe-area-inset-bottom) + 8px);left:50%;transform:translateX(-50%);display:none;gap:4px}
+#widthPop.on{display:flex}
+#widthPop button{width:52px;height:52px;border:0;border-radius:var(--r-m);background:transparent;display:grid;place-items:center;cursor:pointer}
+#widthPop button.on{background:var(--ink-soft)}
+#widthPop b{display:block;border-radius:50%;background:var(--text)}
+#morePop{top:calc(var(--topH) + env(safe-area-inset-top) + 6px);left:8px;width:min(300px,calc(100% - 16px));padding:6px}
+.mi{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;border:0;background:transparent;border-radius:var(--r-m);padding:0 12px;font-size:16px;cursor:pointer;text-align:right}
+.mi:hover{background:var(--chrome)}
+.mi svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mi small{margin-inline-start:auto;color:var(--muted);font-size:14px}
+.mi-paper{padding:8px 12px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.mi-paper p{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.mi-paper .segs{width:100%}
+.mi-paper .segs button{flex:1;padding:0}
+
+#drawer{position:fixed;top:0;bottom:0;right:0;width:min(340px,88vw);background:var(--paper);box-shadow:var(--shadow);transform:translateX(105%);transition:transform .25s cubic-bezier(.3,.7,.3,1);z-index:10;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+#drawer.on{transform:none}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px}
+.dh h2{margin:0;font-size:20px;font-weight:700}
+.btn{border:0;border-radius:var(--r-m);background:var(--ink);color:var(--paper);font-size:15px;font-weight:600;min-height:44px;padding:0 18px;cursor:pointer}
+.btn.ghost{background:var(--chrome-2);color:var(--text)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+#list{overflow:auto;padding:0 12px 16px;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;gap:12px;align-items:center;padding:8px;border-radius:var(--r-m);cursor:pointer}
+.item:hover{background:var(--chrome)}
+.item.cur{background:var(--ink-soft)}
+.th{width:84px;height:60px;border-radius:8px;box-shadow:0 0 0 1px var(--line);flex:none;background:#fff}
+.meta{flex:1;min-width:0;font-size:14px;color:var(--muted);line-height:1.45}
+.meta b{display:block;color:var(--text);font-size:16px;font-weight:600}
+.del{border:0;background:transparent;color:var(--muted);border-radius:var(--r-s);min-width:44px;height:44px;display:grid;place-items:center;cursor:pointer;flex:none;font-size:14px;font-weight:600}
+.del svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.del.confirm{background:var(--danger);color:#fff;padding:0 12px}
+
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:88%;overflow:auto;margin:0 auto;width:min(520px,100%);background:var(--paper);border-radius:var(--r-l) var(--r-l) 0 0;box-shadow:var(--shadow);padding:8px 18px calc(18px + env(safe-area-inset-bottom));z-index:10;transform:translateY(105%);transition:transform .25s cubic-bezier(.3,.7,.3,1)}
+.sheet.on{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+.sheet h3{margin:0 0 4px;font-size:20px;font-weight:700}
+.sheet h4{margin:18px 0 2px;font-size:14px;font-weight:600;color:var(--ink)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 0;font-size:16px;border-bottom:1px solid var(--line)}
+.row:last-of-type{border-bottom:0}
+.row small{display:block;color:var(--muted);font-size:14px;line-height:1.4;margin-top:2px}
+.row .segs button{padding:0 11px;height:36px;font-size:14px}
+.tg{width:50px;height:30px;flex:none;border-radius:15px;background:var(--line);position:relative;border:0;cursor:pointer;padding:0;transition:background-color .2s}
+.tg::after{content:"";position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .3);transition:right .2s}
+.tg.on{background:var(--ink)}
+.tg.on::after{right:23px}
+.foot{font-size:14px;color:var(--muted);margin:14px 0 0;line-height:1.6}
+
+#dlg{position:fixed;inset:0;background:rgb(10 12 20 / .4);z-index:30;display:none;align-items:center;justify-content:center;padding:16px}
+#dlg.on{display:flex}
+#dlg .box{background:var(--paper);border-radius:var(--r-l);box-shadow:var(--shadow);width:min(420px,100%);max-height:calc(100% - 32px);overflow:auto;padding:20px}
+#dlg h3{margin:0 0 10px;font-size:20px;font-weight:700}
+#dlgB{font-size:16px;line-height:1.6;color:var(--muted)}
+#dlgB p{margin:0 0 12px}
+#dlgB input[type=password]{width:100%;font-size:17px;min-height:48px;padding:0 14px;border-radius:var(--r-m);border:1.5px solid var(--line);background:var(--chrome);color:var(--text);margin:0 0 10px;direction:ltr;text-align:right}
+#dlgB input:focus{outline:none;border-color:var(--ink)}
+#dlgB textarea{width:100%;min-height:240px;font:inherit;font-size:16px;line-height:1.7;padding:12px 14px;border-radius:var(--r-m);border:1.5px solid var(--line);background:var(--chrome);color:var(--text);resize:vertical;-webkit-user-select:text;user-select:text}
+#dlgB .err{color:var(--danger);min-height:1.5em;margin:0;font-size:15px}
+#dlgB .note{font-size:14px}
+.choice{display:flex;gap:14px;align-items:center;width:100%;text-align:right;border:1.5px solid var(--line);background:var(--paper);border-radius:var(--r-m);padding:14px;margin:0 0 10px;cursor:pointer}
+.choice:hover{border-color:var(--ink)}
+.choice b{display:block;font-size:17px;color:var(--text)}
+.choice small{color:var(--muted);font-size:14px;line-height:1.45}
+.choice .ic{width:44px;height:52px;flex:none;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;direction:ltr}
+.ic.pdf{background:#FDECEC;color:#B42318}
+.ic.txt{background:var(--ink-soft);color:var(--ink)}
+[data-theme=dark] .ic.pdf{background:#3A2020;color:#FF9C9C}
+.choice:disabled{opacity:.55;cursor:default}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:sp .9s linear infinite;vertical-align:-2px;margin-inline-end:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+#dbg{position:fixed;left:8px;top:calc(var(--topH) + env(safe-area-inset-top) + 8px);font:12px/1.6 ui-monospace,Menlo,monospace;background:rgb(0 0 0 / .78);color:#B8F5C0;padding:6px 10px;border-radius:8px;pointer-events:none;z-index:6;display:none;white-space:pre;direction:rtl}
+#toast{position:fixed;left:50%;bottom:calc(var(--trayH) + env(safe-area-inset-bottom) + 14px);transform:translateX(-50%) translateY(8px);background:var(--text);color:var(--paper);padding:10px 18px;border-radius:22px;font-size:15px;font-weight:500;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:40;white-space:nowrap}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header id="top">
+  <button class="ib" id="bMenu" aria-label="הפתקים שלי"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+  <button id="title" aria-label="פתק"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span></span></button>
+  <button class="ib" id="bZoom" aria-label="חזרה לגודל רגיל">100%</button>
+  <button class="ib" id="bUndo" aria-label="ביטול פעולה"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+  <button class="ib" id="bRedo" aria-label="ביצוע מחדש"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+  <button class="ib" id="bExport" aria-label="שמירה כקובץ"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></button>
+  <button class="ib" id="bMore" aria-label="עוד"><svg viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="18.5" r="1.2"/></svg></button>
+</header>
+
+<main id="stage" aria-label="דף הכתיבה"><canvas id="main"></canvas><canvas id="over"></canvas></main>
+<div id="hint"><b>דף ריק</b>כותבים עם העט, גוללים באצבע.<br>מחק: מחזיקים את כפתור העט.<br>ביטול: הקשה בשתי אצבעות.</div>
+
+<footer id="bottom">
+  <div class="tools" role="radiogroup" aria-label="כלי כתיבה">
+    <button class="tool" id="bPen" role="radio" aria-label="עט"><svg viewBox="0 0 34 70"><path class="body" d="M9 70V24L17 4l8 20v46z"/><path class="tip" id="penTip" d="M13.6 13h6.8L17 4z"/><rect class="band" x="9" y="30" width="16" height="4"/></svg></button>
+    <button class="tool" id="bHL" role="radio" aria-label="מרקר"><svg viewBox="0 0 34 70"><path class="body" d="M7 70V24l3-7h14l3 7v46z"/><path class="tip" id="hlTip" d="M11 17V8l12-4v13z"/><rect class="band" x="7" y="32" width="20" height="4"/></svg></button>
+    <button class="tool" id="bEr" role="radio" aria-label="מחק"><svg viewBox="0 0 34 70"><rect class="body" x="7" y="16" width="20" height="54" rx="4"/><rect class="tip" x="7" y="8" width="20" height="16" rx="4" fill="#EBA0A6"/><rect class="band" x="7" y="24" width="20" height="4"/></svg></button>
+  </div>
+  <div class="tray-mid" id="trayMid">
+    <div id="palette" style="display:flex;gap:0" role="radiogroup" aria-label="צבע"></div>
+    <button class="sw" id="bWidth" aria-label="עובי קו"><i><b></b></i></button>
+    <div class="segs" id="erSeg" style="display:none" role="radiogroup" aria-label="סוג מחק"><button data-v="stroke">קו שלם</button><button data-v="partial">חלקי</button></div>
+  </div>
+</footer>
+
+<div id="scrim"></div>
+<div class="pop" id="widthPop" role="radiogroup" aria-label="עובי קו"></div>
+
+<div class="pop" id="morePop" role="menu">
+  <div class="mi-paper"><p>סוג נייר</p><div class="segs" id="mPaper"><button data-v="plain">חלק</button><button data-v="lined">שורות</button><button data-v="grid">משובץ</button></div></div>
+  <button class="mi" id="mLock" role="menuitem"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span id="mLockT">נעילה בסיסמה</span></button>
+  <button class="mi" id="mNew" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>פתק חדש</span></button>
+  <button class="mi" id="bSet" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>הגדרות</span></button>
+</div>
+
+<aside id="drawer" aria-label="הפתקים שלי">
+  <div class="dh"><h2>הפתקים שלי</h2><button class="btn" id="dNew">פתק חדש</button></div>
+  <div id="list"></div>
+</aside>
+
+<section class="sheet" id="settings" aria-label="הגדרות">
+  <div class="grab"></div>
+  <h3>הגדרות</h3>
+  <h4>עט</h4>
+  <div class="row"><span>כפתור העט<small>החזקה: מוחק כל עוד לוחצים.<br>מתג: כל לחיצה מחליפה כלי.</small></span><div class="segs" id="sBtn"><button data-v="hold">החזקה</button><button data-v="toggle">מתג</button><button data-v="off">כבוי</button></div></div>
+  <div class="row"><span>סוג מחק</span><div class="segs" id="sEr"><button data-v="stroke">קו שלם</button><button data-v="partial">חלקי</button></div></div>
+  <div class="row"><span>רגישות ללחץ</span><div class="segs" id="sCurve"><button data-v="0.6">רכה</button><button data-v="1">רגילה</button><button data-v="1.7">קשיחה</button></div></div>
+  <div class="row"><span>חזרה לעט אחרי מחיקה<small>אחרי מחיקה אחת, הכלי חוזר לעט.</small></span><button class="tg" id="sBack" aria-label="חזרה לעט אחרי מחיקה"></button></div>
+  <h4>דף</h4>
+  <div class="row"><span>סוג נייר<small>לפתק הזה ולפתקים חדשים.</small></span><div class="segs" id="sPaper"><button data-v="plain">חלק</button><button data-v="lined">שורות</button><button data-v="grid">משובץ</button></div></div>
+  <div class="row"><span>המשך אוטומטי שמאלה<small>כשכותבים ליד הקצה השמאלי, הדף זז שמאלה.</small></span><button class="tg" id="sLeft" aria-label="המשך אוטומטי שמאלה"></button></div>
+  <h4>תצוגה</h4>
+  <div class="row"><span>חדות המסך<small>נמוכה מהירה יותר. גבוהה חדה יותר.</small></span><div class="segs" id="sRes"><button data-v="low">נמוכה</button><button data-v="normal">רגילה</button><button data-v="high">גבוהה</button></div></div>
+  <div class="row"><span>ערכת נושא</span><div class="segs" id="sTheme"><button data-v="auto">אוטומטית</button><button data-v="light">בהירה</button><button data-v="dark">כהה</button></div></div>
+  <h4>מתקדם</h4>
+  <div class="row"><span>כתיבה גם באצבע<small>לבדיקה בלי עט. גלילה וזום בשתי אצבעות.</small></span><button class="tg" id="sFinger" aria-label="כתיבה באצבע"></button></div>
+  <div class="row"><span>מסך אבחון לעט<small>מה הדפדפן מזהה: לחץ, כפתור, ריחוף.</small></span><button class="tg" id="sDebug" aria-label="מסך אבחון לעט"></button></div>
+  <div class="row"><span>גיבוי הפתק<small>מעתיק את נתוני הפתק כ-JSON.</small></span><button class="btn ghost" id="sCopy">העתק</button></div>
+  <p class="foot">הפתקים נשמרים אוטומטית בדפדפן הזה, במכשיר הזה בלבד.</p>
+</section>
+
+<div id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT"><div class="box"><h3 id="dlgT"></h3><div id="dlgB"></div><div class="acts" id="dlgA"></div></div></div>
+<div id="dbg"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), main = $('#main'), over = $('#over');
+const mctx = main.getContext('2d', { desynchronized: true, alpha: false }) || main.getContext('2d');
+const octx = over.getContext('2d', { desynchronized: true }) || over.getContext('2d');
+const lowLatency = !!(mctx.getContextAttributes && mctx.getContextAttributes().desynchronized);
+
+const LINE = 44, TOP = 72, GRID = 28, ER = 16, ZMIN = 0.5, ZMAX = 4;
+const COLORS = { ink: ['#1F2329', '#ECEEF2'], blue: ['#27348B', '#9DAEFF'], red: ['#C62828', '#FF8A80'], green: ['#2E7D4F', '#7BD8A0'] };
+const HL = { y: ['#FFD43B', '#C9A51F'], g: ['#8CE99A', '#3F9B5A'], p: ['#FFA8C5', '#B4577A'], b: ['#91C9FF', '#3F78B4'] };
+const COLOR_NAMES = { ink: 'שחור', blue: 'כחול', red: 'אדום', green: 'ירוק', y: 'צהוב', g: 'ירוק', p: 'ורוד', b: 'תכלת' };
+const WIDTHS = [1.5, 2.5, 4, 6];
+const PAPER = ['#FCFCFA', '#16181C'], RULE = ['#D3DDEB', '#2B3442'], GRIDC = ['#E3E8EF', '#252B33'], MARGIN = ['#EBB0AE', '#5A3236'];
+const PAPER_NAMES = { plain: 'נייר חלק', lined: 'שורות', grid: 'משובץ' };
+const KEY = 'spen-notepad-v1';
+
+let W = 0, H = 0, DPR = 1, ci = 0, R = { x: 0, y: 0 };
+
+// ---------- data ----------
+let data = null;
+function newNote() { const t = Date.now(); return { id: 'n' + t + Math.random().toString(36).slice(2, 6), created: t, updated: t, strokes: [], paper: (data && data.settings.paper) || 'lined', view: null, pw: W || 0 }; }
+function load() { try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.notes)) return d; } catch (e) {} return null; }
+data = load() || { notes: [], cur: 0 };
+data.settings = Object.assign({ theme: 'auto', finger: false, debug: false, curve: 1, paper: 'lined', btn: 'hold', eraser: 'stroke', res: 'normal', autoLeft: true, backToPen: false }, data.settings || {});
+data.tool = Object.assign({ color: 'ink', hl: 'y', width: 2.5, mode: 'pen' }, data.tool || {});
+if (!WIDTHS.includes(data.tool.width)) data.tool.width = WIDTHS.reduce((a, b) => Math.abs(b - data.tool.width) < Math.abs(a - data.tool.width) ? b : a);
+if (!data.notes.length) data.notes.push(newNote());
+if (!(data.cur >= 0 && data.cur < data.notes.length)) data.cur = 0;
+for (const n of data.notes) { if (!n.paper) n.paper = 'lined'; if (!n.view) n.view = { z: 1, ox: 0, oy: n.scroll || 0 }; }
+let note = data.notes[data.cur];
+let z = note.view.z || 1, ox = note.view.ox || 0, oy = note.view.oy || 0;
+let undoS = [], redoS = [], storageOk = true, cmin = 0;
+
+let saveT = 0;
+function flush() {
+  clearTimeout(saveT); saveT = 0;
+  note.view = { z, ox, oy }; data.cur = data.notes.indexOf(note);
+  try { localStorage.setItem(KEY, JSON.stringify(data)); }
+  catch (e) { if (storageOk) { storageOk = false; toast('אין גישה לאחסון. הפתקים לא יישמרו אחרי סגירה'); } }
+}
+function save() { clearTimeout(saveT); saveT = setTimeout(flush, 500); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+addEventListener('pagehide', flush);
+
+// ---------- theme ----------
+const mq = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const th = data.settings.theme;
+  ci = (th === 'dark' || (th === 'auto' && mq.matches)) ? 1 : 0;
+  document.documentElement.dataset.theme = ci ? 'dark' : 'light';
+  document.querySelector('meta[name=theme-color]').content = ci ? '#1E2126' : '#F3F4F6';
+  paintTools(); redraw();
+}
+if (mq.addEventListener) mq.addEventListener('change', applyTheme);
+
+// ---------- view (zoom / pan) ----------
+const PW = () => note.pw || W;
+const toDocX = cx => (cx - R.x) / z + ox, toDocY = cy => (cy - R.y) / z + oy;
+function recalcMin() { cmin = 0; for (const s of note.strokes) { const b = s.b || bbox(s); if (b[0] < cmin) cmin = b[0]; } }
+function clampView() {
+  const oxMax = PW() - W / z, oxMin = Math.min(0, cmin) - (W / z) * 0.9;
+  if (ox > oxMax) ox = oxMax; if (ox < oxMin) ox = oxMin; if (oy < 0) oy = 0;
+}
+function setView(nz, nox, noy) { z = Math.min(ZMAX, Math.max(ZMIN, nz)); ox = nox; oy = noy; clampView(); requestRedraw(); updZoom(); }
+function updZoom() { const b = $('#bZoom'); b.textContent = Math.round(z * 100) + '%'; b.classList.toggle('hide', Math.abs(z - 1) < 0.01 && Math.abs(ox - (PW() - W)) < 2); }
+function viewT(ctx) { ctx.setTransform(DPR * z, 0, 0, DPR * z, -ox * DPR * z, -oy * DPR * z); }
+function screenT(ctx) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+
+// ---------- stroke geometry (doc coordinates) ----------
+function bbox(s) {
+  const p = s.p; let a = 1e9, b = 1e9, c = -1e9, d = -1e9;
+  for (let i = 0; i < p.length; i += 3) { const x = p[i], y = p[i + 1]; if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; }
+  const m = (s.t === 'hl' ? s.w * 3 : s.w * 1.5) + 4;
+  s.b = [a - m, b - m, c + m, d + m]; return s.b;
+}
+function pw(s, pr) {
+  if (s.t === 'hl') return s.w * 5;
+  const q = Math.min(1, Math.max(0, pr));
+  return Math.max(0.6, s.w * (0.3 + 1.1 * Math.pow(q, data.settings.curve)));
+}
+// Pen strokes are drawn as one filled outline (left edge, round cap, right edge, round cap),
+// so width changes are smooth and there are no visible joins between segments.
+let pathCache = new WeakMap();
+function smoothClosed(P, pts) {
+  const m = pts.length / 2; if (m < 3) return;
+  P.moveTo((pts[0] + pts[2]) / 2, (pts[1] + pts[3]) / 2);
+  for (let i = 1; i <= m; i++) {
+    const j = (i % m) * 2, k = ((i + 1) % m) * 2;
+    P.quadraticCurveTo(pts[j], pts[j + 1], (pts[j] + pts[k]) / 2, (pts[j + 1] + pts[k + 1]) / 2);
+  }
+  P.closePath();
+}
+function buildOutline(s) {
+  const P = new Path2D(), p = s.p, n = p.length / 3;
+  const rad = i => pw(s, p[i * 3 + 2]) / 2;
+  const dot = i => { P.moveTo(p[i * 3] + rad(i), p[i * 3 + 1]); P.arc(p[i * 3], p[i * 3 + 1], rad(i), 0, Math.PI * 2); };
+  if (n === 1) { dot(0); return P; }
+  const L = [], Rt = [];
+  let ptx = 0, pty = 0;
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1);
+    let tx = p[b * 3] - p[a * 3], ty = p[b * 3 + 1] - p[a * 3 + 1];
+    const d = Math.hypot(tx, ty) || 1; tx /= d; ty /= d;
+    const r = rad(i), x = p[i * 3], y = p[i * 3 + 1];
+    L.push(x - ty * r, y + tx * r); Rt.push(x + ty * r, y - tx * r);
+    if (i > 1 && i < n - 1 && tx * ptx + ty * pty < 0.4) dot(i);   // sharp turn: fill the corner
+    ptx = tx; pty = ty;
+  }
+  const poly = L.slice();
+  for (let i = Rt.length - 2; i >= 0; i -= 2) poly.push(Rt[i], Rt[i + 1]);
+  smoothClosed(P, poly);
+  dot(0); dot(n - 1);
+  return P;
+}
+function hlPath(s) {
+  const P = new Path2D(), p = s.p, n = p.length / 3;
+  P.moveTo(p[0], p[1]);
+  if (n === 1) P.lineTo(p[0] + 0.1, p[1]);
+  for (let i = 1; i < n; i++) { const j = (i - 1) * 3, k = i * 3; P.quadraticCurveTo(p[j], p[j + 1], (p[j] + p[k]) / 2, (p[j + 1] + p[k + 1]) / 2); }
+  if (n > 1) P.lineTo(p[(n - 1) * 3], p[(n - 1) * 3 + 1]);
+  return P;
+}
+function pathOf(s, cache = true) {
+  if (!cache) return s.t === 'hl' ? hlPath(s) : buildOutline(s);
+  let P = pathCache.get(s); if (!P) { P = s.t === 'hl' ? hlPath(s) : buildOutline(s); pathCache.set(s, P); } return P;
+}
+const inkOf = s => (COLORS[s.c] || COLORS.ink)[ci];
+const hlOf = s => (HL[s.c] || HL.y)[ci];
+function renderPen(ctx, s, cache) { ctx.fillStyle = inkOf(s); ctx.fill(pathOf(s, cache)); }
+function renderHL(ctx, s, cache) {
+  ctx.save(); ctx.globalAlpha = ci ? 0.5 : 0.45; ctx.strokeStyle = hlOf(s);
+  ctx.lineWidth = s.w * 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.stroke(pathOf(s, cache)); ctx.restore();
+}
+function drawPaper(c, x0, y0, x1, y1, lw = 1 / z, n = note) {
+  if (n.paper === 'lined') {
+    c.lineWidth = lw; c.strokeStyle = RULE[ci]; c.beginPath();
+    let y = TOP + Math.ceil((y0 - TOP) / LINE) * LINE; if (y < TOP) y = TOP;
+    for (; y <= y1; y += LINE) { c.moveTo(x0, y); c.lineTo(x1, y); }
+    c.stroke();
+    const mx = (n.pw || W) - 40;
+    if (mx >= x0 && mx <= x1) { c.strokeStyle = MARGIN[ci]; c.beginPath(); c.moveTo(mx, y0); c.lineTo(mx, y1); c.stroke(); }
+  } else if (n.paper === 'grid') {
+    c.lineWidth = lw; c.strokeStyle = GRIDC[ci]; c.beginPath();
+    for (let x = Math.floor(x0 / GRID) * GRID; x <= x1; x += GRID) { c.moveTo(x, y0); c.lineTo(x, y1); }
+    for (let y = Math.floor(y0 / GRID) * GRID; y <= y1; y += GRID) { c.moveTo(x0, y); c.lineTo(x1, y); }
+    c.stroke();
+  }
+}
+let rafPending = false;
+function requestRedraw() { if (!rafPending) { rafPending = true; requestAnimationFrame(() => { rafPending = false; redraw(); }); } }
+function redraw() {
+  if (!W) return;
+  const c = mctx;
+  screenT(c); c.fillStyle = PAPER[ci]; c.fillRect(0, 0, W, H);
+  viewT(c);
+  const x0 = ox, y0 = oy, x1 = ox + W / z, y1 = oy + H / z;
+  drawPaper(c, x0, y0, x1, y1);
+  const vis = note.strokes.filter(s => { const b = s.b || bbox(s); return b[2] >= x0 && b[0] <= x1 && b[3] >= y0 && b[1] <= y1; });
+  for (const s of vis) if (s.t === 'hl') renderHL(c, s);
+  for (const s of vis) if (s.t !== 'hl') renderPen(c, s);
+}
+const RES = { low: () => 1, normal: () => Math.min(window.devicePixelRatio || 1, 2), high: () => Math.min(window.devicePixelRatio || 1, 4) };
+function resize() {
+  DPR = (RES[data.settings.res] || RES.normal)();
+  const r = stage.getBoundingClientRect(); R = { x: r.left, y: r.top }; W = r.width; H = r.height;
+  for (const n of data.notes) if (!n.pw) n.pw = W;
+  for (const cv of [main, over]) { cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); }
+  clampView(); updZoom(); redraw();
+}
+addEventListener('resize', resize);
+
+// ---------- animated view moves ----------
+let animRaf = 0, animKind = '';
+function stopAnim() { if (animRaf) cancelAnimationFrame(animRaf); animRaf = 0; animKind = ''; }
+function stopMomentum() { if (animKind === 'momentum') stopAnim(); }
+function momentum(vx, vy) {
+  stopAnim(); animKind = 'momentum'; let last = performance.now();
+  const vm = Math.hypot(vx, vy), cap = 6 / z; if (vm > cap) { vx *= cap / vm; vy *= cap / vm; }
+  const step = t => { const dt = Math.max(0, Math.min(32, t - last)); last = Math.max(last, t); const k = Math.pow(0.995, dt); vx *= k; vy *= k;
+    if (Math.hypot(vx, vy) < 0.02) { stopAnim(); save(); return; }
+    const px = ox, py = oy; setView(z, ox + vx * dt, oy + vy * dt);
+    if (px === ox && py === oy) { stopAnim(); save(); return; }
+    animRaf = requestAnimationFrame(step); };
+  animRaf = requestAnimationFrame(step);
+}
+function animateView(tx, ty) {
+  stopAnim(); animKind = 'follow'; const fx = ox, fy = oy, t0 = performance.now(), D = 320;
+  const step = t => { const k = Math.max(0, Math.min(1, (t - t0) / D)), e = 1 - Math.pow(1 - k, 3);
+    setView(z, fx + (tx - fx) * e, fy + (ty - fy) * e);
+    if (k < 1) animRaf = requestAnimationFrame(step); else { stopAnim(); save(); } };
+  animRaf = requestAnimationFrame(step);
+}
+stage.addEventListener('wheel', e => {
+  e.preventDefault(); stopAnim();
+  if (e.ctrlKey) { const nz = Math.min(ZMAX, Math.max(ZMIN, z * Math.exp(-e.deltaY * 0.01))); const ax = toDocX(e.clientX), ay = toDocY(e.clientY); setView(nz, ax - (e.clientX - R.x) / nz, ay - (e.clientY - R.y) / nz); }
+  else setView(z, ox + (e.shiftKey ? e.deltaY : e.deltaX) / z, oy + (e.shiftKey ? 0 : e.deltaY) / z);
+  save();
+}, { passive: false });
+
+// ---------- pen button ----------
+let penBtn = false, btnSeen = false;
+const btnOf = e => !!((e.buttons & 2) || (e.buttons & 32));
+function trackPenButton(e, canChain) {
+  if (e.pointerType !== 'pen') return;
+  const now = btnOf(e);
+  if (now === penBtn) return;
+  penBtn = now; btnSeen = true;
+  const mode = data.settings.btn;
+  if (mode === 'toggle' && now) { setMode(data.tool.mode === 'erase' ? (data.tool.prev || 'pen') : 'erase'); toast(data.tool.mode === 'erase' ? 'מחק' : 'עט'); }
+  if (mode === 'hold' && canChain && act && act.id === e.pointerId) { finishAct(true); startDraw(e, true); }
+}
+const holdErase = e => data.settings.btn === 'hold' && e.pointerType !== 'touch' && btnOf(e);
+
+// ---------- input ----------
+let act = null, live = null, liveMeta = null, lastPen = -1e9;
+const touches = new Map(); let drag = null, pinch = null;
+let hoverSeen = false, palmCount = 0, evCount = 0, hz = 0, lastInfo = null;
+// a pen near the screen means any touches are a resting palm: forget them
+function dropTouches() { if (touches.size || drag || pinch) { touches.clear(); drag = null; pinch = null; } }
+stage.addEventListener('contextmenu', e => e.preventDefault());
+
+function startDraw(e, pen) {
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  stopAnim(); closePops();
+  if (pen) lastPen = performance.now();
+  const erase = data.tool.mode === 'erase' || holdErase(e);
+  act = { id: e.pointerId, pen, erase, type: e.pointerType, before: erase ? note.strokes.slice() : null, changed: false, byButton: !!holdErase(e) };
+  screenT(octx); octx.clearRect(0, 0, W, H);
+  if (erase) { eraseAt(toDocX(e.clientX), toDocY(e.clientY)); ring(e.clientX, e.clientY); return; }
+  const hl = data.tool.mode === 'hl';
+  live = { c: hl ? data.tool.hl : data.tool.color, w: data.tool.width, t: hl ? 'hl' : 'pen', p: [] };
+  liveMeta = { t: e.timeStamp, pr: e.pointerType === 'pen' ? e.pressure : 0.55 };
+  addPt(e); drawLive(e);
+}
+// streamline position and pressure; simulate pressure from speed for mouse and finger
+function addPt(ev, raw) {
+  let x = toDocX(ev.clientX), y = toDocY(ev.clientY);
+  const p = live.p, n = p.length;
+  let pr;
+  if (act.type === 'pen') pr = ev.pressure || liveMeta.pr;
+  else { const dt = Math.max(1, ev.timeStamp - liveMeta.t), sp = n ? Math.hypot(x - p[n - 3], y - p[n - 2]) * z / dt : 0; pr = Math.max(0.25, Math.min(0.8, 0.8 - sp * 0.18)); liveMeta.t = ev.timeStamp; }
+  pr = liveMeta.pr + (pr - liveMeta.pr) * 0.45; liveMeta.pr = pr;
+  if (n) {
+    if (!raw) { const k = 0.7; x = p[n - 3] + (x - p[n - 3]) * k; y = p[n - 2] + (y - p[n - 2]) * k; }
+    const dx = x - p[n - 3], dy = y - p[n - 2]; if (dx * dx + dy * dy < 0.25 / (z * z)) return;
+  }
+  p.push(Math.round(x * 100) / 100, Math.round(y * 100) / 100, Math.round(pr * 1000) / 1000);
+}
+function drawLive(e) {
+  screenT(octx); octx.clearRect(0, 0, W, H);
+  if (!live || !live.p.length) return;
+  viewT(octx);
+  if (live.t === 'hl') renderHL(octx, live, false); else renderPen(octx, live, false);
+  const pred = e && e.getPredictedEvents ? e.getPredictedEvents() : [];
+  if (pred.length) {
+    const p = live.p, n = p.length;
+    octx.save(); octx.globalAlpha = live.t === 'hl' ? 0.25 : 0.5;
+    octx.strokeStyle = live.t === 'hl' ? hlOf(live) : inkOf(live);
+    octx.lineWidth = pw(live, p[n - 1]); octx.lineCap = 'round'; octx.lineJoin = 'round';
+    octx.beginPath(); octx.moveTo(p[n - 3], p[n - 2]);
+    for (const q of pred) octx.lineTo(toDocX(q.clientX), toDocY(q.clientY));
+    octx.stroke(); octx.restore();
+  }
+}
+function finishAct(chained, e) {
+  const a = act; act = null; screenT(octx); octx.clearRect(0, 0, W, H);
+  if (a.erase) {
+    if (a.changed) { pushUndo({ type: 'snap', before: a.before, after: note.strokes.slice() }); touchNote(); }
+    if (!a.byButton && data.settings.backToPen && data.tool.mode === 'erase' && !chained) setMode(data.tool.prev || 'pen');
+    return;
+  }
+  const s = live;
+  if (s && e && s.p.length >= 6) { act = a; addPt(e, true); act = null; }   // land exactly where the pen lifted
+  live = null;
+  if (!s || !s.p.length) return;
+  bbox(s); note.strokes.push(s); pushUndo({ type: 'add', s });
+  if (s.t === 'hl') redraw(); else { viewT(mctx); renderPen(mctx, s); }
+  touchNote();
+  if (chained || s.t !== 'pen') return;
+  let tx = ox, ty = oy;
+  const leftOnScreen = (s.b[0] - ox) * z, bottomOnScreen = (s.b[3] - oy) * z;
+  if (data.settings.autoLeft && leftOnScreen < W * 0.12) tx = s.b[0] - (W * 0.6) / z;
+  if (bottomOnScreen > H * 0.82) ty = s.b[3] - (H * 0.55) / z;
+  if (tx !== ox || ty !== oy) { cmin = Math.min(cmin, tx); animateView(tx, ty); }
+}
+
+stage.addEventListener('pointerdown', e => {
+  info(e, 'down'); trackPenButton(e);
+  const now = performance.now();
+  if (e.pointerType === 'pen') dropTouches();
+  if (e.pointerType === 'touch') {
+    if ((act && act.pen) || now - lastPen < 500) { palmCount++; return; }
+    if (act && !act.pen) { live = null; act = null; screenT(octx); octx.clearRect(0, 0, W, H); redraw(); }
+    else if (data.settings.finger && touches.size === 0 && !isLocked()) { startDraw(e, false); touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); return; }
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stopAnim(); closePops();
+    if (touches.size === 1) drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ox0: ox, oy0: oy, lx: e.clientX, ly: e.clientY, lt: now, vx: 0, vy: 0 };
+    else if (touches.size >= 2) {
+      const [a, b] = [...touches.values()];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      pinch = { d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: z, ax: toDocX(mx), ay: toDocY(my), mx0: mx, my0: my, t: now, moved: false };
+      drag = null;
+    }
+    return;
+  }
+  if (act) return;
+  if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
+  if (isLocked()) { if (e.pointerType === 'pen') lastPen = now; lockedNudge(); return; }
+  startDraw(e, e.pointerType === 'pen');
+});
+
+stage.addEventListener('pointermove', e => {
+  const now = performance.now();
+  if (e.pointerType === 'pen') {
+    lastPen = now; trackPenButton(e, true); stopMomentum(); dropTouches();
+    evCount += (e.getCoalescedEvents ? e.getCoalescedEvents().length : 1) || 1;
+  }
+  if (act && e.pointerId === act.id) {
+    const ce = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+    const list = ce.length ? ce : [e];
+    if (act.erase) { for (const ev of list) eraseAt(toDocX(ev.clientX), toDocY(ev.clientY)); ring(e.clientX, e.clientY); info(e, 'draw'); return; }
+    for (const ev of list) addPt(ev);
+    drawLive(e); info(e, 'draw');
+    return;
+  }
+  if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+    if (e.pointerType === 'pen') hoverSeen = true;
+    info(e, 'hover'); hover(e.clientX, e.clientY, holdErase(e)); return;
+  }
+  if (e.pointerType === 'touch') {
+    const t = touches.get(e.pointerId); if (!t) return;
+    t.x = e.clientX; t.y = e.clientY;
+    if (pinch && touches.size >= 2) {
+      const [a, b] = [...touches.values()];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, d = Math.max(10, Math.hypot(a.x - b.x, a.y - b.y));
+      if (Math.abs(d - pinch.d0) > 12 || Math.hypot(mx - pinch.mx0, my - pinch.my0) > 12) pinch.moved = true;
+      if (pinch.moved) { const nz = Math.min(ZMAX, Math.max(ZMIN, pinch.z0 * d / pinch.d0)); setView(nz, pinch.ax - (mx - R.x) / nz, pinch.ay - (my - R.y) / nz); }
+      return;
+    }
+    if (drag && drag.id === e.pointerId) {
+      const dt = Math.max(1, now - drag.lt);
+      drag.vx = 0.7 * (-(e.clientX - drag.lx) / dt / z) + 0.3 * drag.vx;
+      drag.vy = 0.7 * (-(e.clientY - drag.ly) / dt / z) + 0.3 * drag.vy;
+      drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = now;
+      setView(z, drag.ox0 - (e.clientX - drag.x0) / z, drag.oy0 - (e.clientY - drag.y0) / z);
+    }
+  }
+});
+
+function endPointer(e) {
+  if (e.pointerType === 'pen') trackPenButton(e);
+  if (act && e.pointerId === act.id) { finishAct(false, e.type === 'pointerup' ? e : null); touches.delete(e.pointerId); return; }
+  if (e.pointerType !== 'touch') return;
+  const had = touches.delete(e.pointerId);
+  if (had && pinch && touches.size <= 1) {
+    if (!pinch.moved && performance.now() - pinch.t < 350) { if (undo()) toast('בוטל'); }
+    pinch = null; drag = null; touches.clear(); save(); return;
+  }
+  if (drag && drag.id === e.pointerId) {
+    const { vx, vy } = drag, recent = performance.now() - drag.lt < 80; drag = null;
+    if (Math.hypot(vx, vy) > 0.15 && recent) momentum(vx, vy); else save();
+  }
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
+stage.addEventListener('pointerleave', e => { if (!act && e.pointerType !== 'touch') { screenT(octx); octx.clearRect(0, 0, W, H); } });
+
+function hover(cx, cy, erase) {
+  const x = cx - R.x, y = cy - R.y;
+  screenT(octx); octx.clearRect(0, 0, W, H);
+  if (isLocked()) return;
+  if (erase || data.tool.mode === 'erase') { ring(cx, cy); return; }
+  const t = data.tool, hl = t.mode === 'hl';
+  octx.globalAlpha = hl ? 0.5 : 0.75;
+  octx.fillStyle = hl ? HL[t.hl][ci] : COLORS[t.color][ci];
+  octx.beginPath(); octx.arc(x, y, Math.max(1.5, (hl ? t.width * 2.5 : t.width * 0.7) * z), 0, 7); octx.fill();
+  octx.globalAlpha = 1;
+}
+function ring(cx, cy) {
+  screenT(octx); octx.clearRect(0, 0, W, H);
+  octx.strokeStyle = ci ? 'rgb(255 255 255 / .7)' : 'rgb(0 0 0 / .55)'; octx.lineWidth = 1.5;
+  octx.beginPath(); octx.arc(cx - R.x, cy - R.y, ER, 0, 7); octx.stroke();
+}
+
+// ---------- eraser ----------
+function distSeg2(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy;
+  let t = l ? ((px - ax) * dx + (py - ay) * dy) / l : 0; t = Math.max(0, Math.min(1, t));
+  const qx = ax + t * dx - px, qy = ay + t * dy - py; return qx * qx + qy * qy;
+}
+function hit(s, x, y, r) {
+  const p = s.p, n = p.length / 3, rr = (r + pw(s, 0.5) / 2) ** 2;
+  if (n === 1) { const dx = p[0] - x, dy = p[1] - y; return dx * dx + dy * dy <= rr; }
+  for (let i = 1; i < n; i++) if (distSeg2(x, y, p[(i - 1) * 3], p[(i - 1) * 3 + 1], p[i * 3], p[i * 3 + 1]) <= rr) return true;
+  return false;
+}
+function splitStroke(s, x, y, r) {
+  const p = s.p, n = p.length / 3, rr = r * r, pieces = []; let cur = [];
+  for (let i = 0; i < n; i++) {
+    const dx = p[i * 3] - x, dy = p[i * 3 + 1] - y;
+    if (dx * dx + dy * dy <= rr) { if (cur.length) { pieces.push(cur); cur = []; } continue; }
+    if (cur.length && distSeg2(x, y, p[(i - 1) * 3], p[(i - 1) * 3 + 1], p[i * 3], p[i * 3 + 1]) <= rr) { pieces.push(cur); cur = []; }
+    cur.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
+  }
+  if (cur.length) pieces.push(cur);
+  return pieces.filter(q => q.length >= 6).map(q => { const ns = { c: s.c, w: s.w, t: s.t, p: q }; bbox(ns); return ns; });
+}
+function eraseAt(x, y) {
+  const S = note.strokes, r = ER / z, partial = data.settings.eraser === 'partial'; let changed = false;
+  for (let i = S.length - 1; i >= 0; i--) {
+    const s = S[i], b = s.b || bbox(s);
+    if (x < b[0] - r || x > b[2] + r || y < b[1] - r || y > b[3] + r) continue;
+    if (!hit(s, x, y, r)) continue;
+    if (partial) S.splice(i, 1, ...splitStroke(s, x, y, r + pw(s, 0.5) / 2)); else S.splice(i, 1);
+    changed = true;
+  }
+  if (changed) { act.changed = true; requestRedraw(); }
+}
+
+// ---------- undo / redo ----------
+function pushUndo(a) { undoS.push(a); if (undoS.length > 300) undoS.shift(); redoS = []; updUndo(); }
+function undo() {
+  if (isLocked()) { lockedNudge(); return false; }
+  const a = undoS.pop(); if (!a) return false;
+  if (a.type === 'add') { const k = note.strokes.indexOf(a.s); if (k >= 0) note.strokes.splice(k, 1); }
+  else note.strokes = a.before.slice();
+  redoS.push(a); updUndo(); redraw(); touchNote(); return true;
+}
+function redo() {
+  if (isLocked()) { lockedNudge(); return false; }
+  const a = redoS.pop(); if (!a) return false;
+  if (a.type === 'add') note.strokes.push(a.s); else note.strokes = a.after.slice();
+  undoS.push(a); updUndo(); redraw(); touchNote(); return true;
+}
+function updUndo() { const l = isLocked(); $('#bUndo').disabled = l || !undoS.length; $('#bRedo').disabled = l || !redoS.length; }
+function touchNote() { note.updated = Date.now(); recalcMin(); save(); updHint(); }
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeAll(); closeDlg(); return; }
+  if (!(e.ctrlKey || e.metaKey) || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
+
+// ---------- tray ----------
+function setMode(m) { if (m !== 'erase') data.tool.prev = m; else if (data.tool.mode !== 'erase') data.tool.prev = data.tool.mode; data.tool.mode = m; paintTools(); save(); }
+function paintTools() {
+  const t = data.tool, hl = t.mode === 'hl', er = t.mode === 'erase';
+  for (const [id, m] of [['#bPen', 'pen'], ['#bHL', 'hl'], ['#bEr', 'erase']]) { const b = $(id); b.classList.toggle('on', t.mode === m); b.setAttribute('aria-checked', t.mode === m); }
+  $('#penTip').setAttribute('fill', COLORS[t.color][ci]);
+  $('#hlTip').setAttribute('fill', HL[t.hl][ci]);
+  const pal = $('#palette'); pal.innerHTML = ''; pal.style.display = er ? 'none' : 'flex';
+  $('#bWidth').style.display = er ? 'none' : ''; $('#erSeg').style.display = er ? 'flex' : 'none';
+  const set = hl ? HL : COLORS, curC = hl ? t.hl : t.color;
+  for (const c of Object.keys(set)) {
+    const b = document.createElement('button'); b.className = 'sw' + (c === curC ? ' on' : '');
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', c === curC); b.setAttribute('aria-label', COLOR_NAMES[c]);
+    b.innerHTML = '<i style="background:' + set[c][ci] + '"></i>';
+    b.onclick = () => { if (hl) t.hl = c; else { t.color = c; if (t.mode !== 'pen') setMode('pen'); } paintTools(); save(); };
+    pal.appendChild(b);
+  }
+  const d = Math.max(4, Math.min(18, (hl ? t.width * 2.4 : t.width * 2.4)));
+  const wb = $('#bWidth b'); wb.style.width = wb.style.height = d + 'px'; wb.style.background = hl ? HL[t.hl][ci] : COLORS[t.color][ci];
+  document.querySelectorAll('#erSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === data.settings.eraser));
+}
+$('#bPen').onclick = () => setMode('pen');
+$('#bHL').onclick = () => setMode('hl');
+$('#bEr').onclick = () => setMode('erase');
+document.querySelectorAll('#erSeg button').forEach(b => b.onclick = () => { data.settings.eraser = b.dataset.v; paintTools(); save(); });
+$('#bWidth').onclick = () => {
+  const pop = $('#widthPop'); if (pop.classList.contains('on')) { closePops(); return; }
+  closePops(); pop.innerHTML = '';
+  const hl = data.tool.mode === 'hl';
+  for (const w of WIDTHS) {
+    const b = document.createElement('button'); b.className = w === data.tool.width ? 'on' : ''; b.setAttribute('aria-label', 'עובי ' + w);
+    const d = Math.max(3, Math.min(20, hl ? w * 2.4 : w * 2)); b.innerHTML = '<b style="width:' + d + 'px;height:' + d + 'px;background:' + (hl ? HL[data.tool.hl][ci] : COLORS[data.tool.color][ci]) + '"></b>';
+    b.onclick = () => { data.tool.width = w; paintTools(); save(); closePops(); };
+    pop.appendChild(b);
+  }
+  pop.classList.add('on'); $('#scrim').classList.add('on', 'clear');
+};
+
+// ---------- top bar, menus, notes ----------
+const fmtD = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long' }), fmtT = new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit' });
+const fmt = { format: d => fmtD.format(d) + ', ' + fmtT.format(d) };
+const fmtShort = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' });
+function updTitle() { $('#title span').textContent = fmt.format(new Date(note.created)); $('#title').classList.toggle('locked', isLocked()); $('#title').setAttribute('aria-label', (isLocked() ? 'נעול. ' : '') + 'פתק מ-' + fmt.format(new Date(note.created))); }
+function updHint() { $('#hint').classList.toggle('off', note.strokes.length > 0); }
+function updPaper() { document.querySelectorAll('#mPaper button, #sPaper button').forEach(b => b.classList.toggle('on', b.dataset.v === note.paper)); }
+$('#bUndo').onclick = undo; $('#bRedo').onclick = redo;
+$('#bZoom').onclick = () => { stopAnim(); const cy = oy + H / z / 2; setView(1, PW() - W, cy - H / 2); save(); };
+function setPaper(v) { if (isLocked()) { lockedNudge(); return; } note.paper = v; data.settings.paper = v; updPaper(); redraw(); save(); }
+document.querySelectorAll('#mPaper button').forEach(b => b.onclick = () => { setPaper(b.dataset.v); });
+function closePops() { $('#widthPop').classList.remove('on'); $('#morePop').classList.remove('on'); if (!$('#drawer').classList.contains('on') && !$('#settings').classList.contains('on')) $('#scrim').classList.remove('on', 'clear'); }
+function closeAll() { $('#drawer').classList.remove('on'); $('#settings').classList.remove('on'); closePops(); $('#scrim').classList.remove('on', 'clear'); }
+$('#scrim').onclick = closeAll;
+$('#bMore').onclick = () => {
+  const p = $('#morePop'); if (p.classList.contains('on')) { closeAll(); return; }
+  closeAll(); updPaper(); $('#mLockT').textContent = !note.lock ? 'נעילה בסיסמה' : isLocked() ? 'פתיחה לעריכה' : 'סיסמה לעריכה';
+  p.classList.add('on'); $('#scrim').classList.add('on', 'clear');
+};
+$('#mLock').onclick = () => { closeAll(); lockAction(); };
+$('#mNew').onclick = () => { closeAll(); createNote(); };
+$('#title').onclick = () => { if (isLocked()) unlockDialog(); else openDrawer(); };
+
+function createNote() {
+  if (!note.strokes.length) { toast('הפתק הנוכחי עדיין ריק'); closeAll(); return; }
+  const n = newNote(); n.pw = W; data.notes.unshift(n); openNote(n); toast('פתק חדש');
+}
+$('#dNew').onclick = createNote;
+function openNote(n, keepCurrentView) {
+  if (!keepCurrentView) note.view = { z, ox, oy };
+  note = n; data.cur = data.notes.indexOf(n);
+  const v = n.view || { z: 1, ox: 0, oy: 0 }; z = v.z || 1; ox = v.ox || 0; oy = v.oy || 0;
+  undoS = []; redoS = []; recalcMin(); clampView(); unlocked = false;
+  updUndo(); updTitle(); updHint(); updPaper(); updLock(); updZoom(); redraw(); save(); closeAll();
+}
+function thumb(n) {
+  const tw = 84, th = 60, c = document.createElement('canvas'); c.className = 'th';
+  const d = Math.min(DPR, 2); c.width = tw * d; c.height = th * d; const x = c.getContext('2d');
+  const keep = ci; ci = 0;
+  x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
+  let a = 0, b = 0, cc = n.pw || W;
+  n.strokes.forEach(s => { const q = s.b || bbox(s); a = Math.min(a, q[0]); cc = Math.max(cc, q[2]); });
+  if (n.strokes.length) b = Math.max(0, Math.min(...n.strokes.map(s => s.b[1])) - 20);
+  const sc = tw * d / (cc - a);
+  x.setTransform(sc, 0, 0, sc, -a * sc, -b * sc);
+  drawPaper(x, a, b, cc, b + th * d / sc, 1 / sc, n);
+  n.strokes.forEach(s => s.t === 'hl' && renderHL(x, s));
+  n.strokes.forEach(s => s.t !== 'hl' && renderPen(x, s));
+  ci = keep;
+  return c;
+}
+function openDrawer() { closeAll(); renderList(); $('#drawer').classList.add('on'); $('#scrim').classList.add('on'); }
+$('#bMenu').onclick = openDrawer;
+function renderList() {
+  const L = $('#list'); L.innerHTML = '';
+  for (const n of data.notes.slice().sort((a, b) => b.updated - a.updated)) {
+    const it = document.createElement('div'); it.className = 'item' + (n === note ? ' cur' : '');
+    it.setAttribute('role', 'button'); it.tabIndex = 0;
+    it.appendChild(thumb(n));
+    const m = document.createElement('div'); m.className = 'meta'; m.innerHTML = '<b></b><span></span>';
+    m.querySelector('b').textContent = (n.lock ? '🔒 ' : '') + fmt.format(new Date(n.created));
+    m.querySelector('span').textContent = PAPER_NAMES[n.paper] + ', ' + (n.strokes.length ? 'עודכן ' + fmtShort.format(new Date(n.updated)) : 'ריק');
+    it.appendChild(m);
+    const del = document.createElement('button'); del.className = 'del'; del.setAttribute('aria-label', 'מחיקת הפתק');
+    del.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 13h9l1-13"/></svg>';
+    let armed = 0;
+    del.onclick = ev => {
+      ev.stopPropagation();
+      if (!armed) { del.classList.add('confirm'); del.textContent = 'מחיקה'; armed = setTimeout(() => { armed = 0; renderList(); }, 3000); return; }
+      clearTimeout(armed); deleteNote(n);
+    };
+    it.appendChild(del);
+    it.onclick = () => openNote(n);
+    it.onkeydown = ev => { if (ev.key === 'Enter') openNote(n); };
+    L.appendChild(it);
+  }
+}
+function deleteNote(n) {
+  if (n.lock) { toast('לפתק יש סיסמה. צריך להסיר אותה לפני המחיקה'); renderList(); return; }
+  const i = data.notes.indexOf(n); if (i < 0) return;
+  const wasCurrent = n === note;
+  data.notes.splice(i, 1);
+  if (!data.notes.length) { const nn = newNote(); nn.pw = W; data.notes.push(nn); }
+  if (wasCurrent) { openNote(data.notes[0], true); openDrawer(); }
+  data.cur = data.notes.indexOf(note); flush(); renderList(); toast('הפתק נמחק');
+}
+
+// ---------- settings ----------
+$('#bSet').onclick = () => { closeAll(); paintSettings(); $('#settings').classList.add('on'); $('#scrim').classList.add('on'); };
+function segBind(id, get, set) {
+  document.querySelectorAll(id + ' button').forEach(b => b.onclick = () => { set(b.dataset.v); paintSettings(); save(); });
+  return () => document.querySelectorAll(id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(get())));
+}
+const painters = [
+  segBind('#sBtn', () => data.settings.btn, v => { data.settings.btn = v; }),
+  segBind('#sEr', () => data.settings.eraser, v => { data.settings.eraser = v; paintTools(); }),
+  segBind('#sCurve', () => data.settings.curve, v => { data.settings.curve = +v; pathCache = new WeakMap(); redraw(); }),
+  segBind('#sPaper', () => note.paper, v => setPaper(v)),
+  segBind('#sRes', () => data.settings.res, v => { data.settings.res = v; resize(); }),
+  segBind('#sTheme', () => data.settings.theme, v => { data.settings.theme = v; applyTheme(); }),
+];
+const toggles = { '#sFinger': 'finger', '#sDebug': 'debug', '#sLeft': 'autoLeft', '#sBack': 'backToPen' };
+function paintSettings() {
+  painters.forEach(f => f());
+  for (const [id, k] of Object.entries(toggles)) { $(id).classList.toggle('on', !!data.settings[k]); $(id).setAttribute('aria-pressed', !!data.settings[k]); }
+}
+for (const [id, k] of Object.entries(toggles)) $(id).onclick = () => {
+  data.settings[k] = !data.settings[k]; paintSettings(); save();
+  if (k === 'debug') { $('#dbg').style.display = data.settings.debug ? 'block' : 'none'; renderDbg(); }
+};
+$('#sCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(JSON.stringify({ created: note.created, paper: note.paper, strokes: note.strokes.map(s => ({ c: s.c, w: s.w, t: s.t, p: s.p })) })); toast('נתוני הפתק הועתקו'); }
+  catch (e) { toast('הדפדפן חסם את ההעתקה'); }
+};
+
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1800); }
+
+// ---------- dialog ----------
+let dlgActs = [];
+function dialog(title, bodyHTML, actions) {
+  closeAll();
+  $('#dlgT').textContent = title; $('#dlgB').innerHTML = bodyHTML;
+  const A = $('#dlgA'); A.innerHTML = ''; dlgActs = actions;
+  for (const a of actions) {
+    const b = document.createElement('button'); b.className = 'btn' + (a.ghost ? ' ghost' : '') + (a.danger ? ' danger' : '');
+    b.textContent = a.label; b.onclick = () => a.run(b); A.appendChild(b); a.el = b;
+  }
+  $('#dlg').classList.add('on');
+  const inp = $('#dlgB input'); setTimeout(() => (inp || A.querySelector('button')).focus(), 60);
+}
+function closeDlg() { $('#dlg').classList.remove('on'); $('#dlgB').innerHTML = ''; dlgActs = []; }
+$('#dlg').addEventListener('pointerdown', e => { if (e.target.id === 'dlg') closeDlg(); });
+$('#dlgB').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); const a = dlgActs.find(x => !x.ghost); if (a) a.run(a.el); }
+});
+
+// ---------- password for editing ----------
+let unlocked = false;
+const isLocked = () => !!note.lock && !unlocked;
+let nudgeT = 0;
+function lockedNudge() { const t = performance.now(); if (t - nudgeT > 1500) { nudgeT = t; toast('הפתק נעול. הקש על הכותרת כדי לפתוח'); } }
+function updLock() { updTitle(); updUndo(); }
+const hex = buf => [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+async function hashPw(pw, salt, method) {
+  if (method === 'p2' && window.crypto && crypto.subtle) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 150000, hash: 'SHA-256' }, key, 256);
+    return 'p2:' + hex(bits);
+  }
+  let h = 2166136261; for (const ch of salt + '|' + pw) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return 'f1:' + h.toString(16);
+}
+const pwMethod = () => (window.crypto && crypto.subtle ? 'p2' : 'f1');
+function lockAction() { if (!note.lock) setPwDialog(); else if (unlocked) manageDialog(); else unlockDialog(); }
+function setPwDialog() {
+  dialog('נעילה בסיסמה',
+    '<p>מי שלא יודע את הסיסמה יוכל לקרוא את הפתק ולשמור אותו כקובץ, אבל לא לשנות אותו.</p>' +
+    '<input type="password" id="pw1" placeholder="סיסמה, 4 תווים לפחות" autocomplete="new-password" aria-label="סיסמה">' +
+    '<input type="password" id="pw2" placeholder="אותה סיסמה שוב" autocomplete="new-password" aria-label="אימות סיסמה">' +
+    '<p class="err" id="pwErr" role="alert"></p><p class="note">אם הסיסמה תישכח, אין דרך לשחזר אותה.</p>',
+    [{ label: 'נעילה', run: async () => {
+        const a = $('#pw1').value, b = $('#pw2').value;
+        if (a.length < 4) { $('#pwErr').textContent = 'הסיסמה קצרה מדי. צריך לפחות 4 תווים'; return; }
+        if (a !== b) { $('#pwErr').textContent = 'שתי הסיסמאות לא תואמות'; return; }
+        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+        note.lock = { salt, hash: await hashPw(a, salt, pwMethod()) };
+        unlocked = false; flush(); updLock(); closeDlg(); toast('הפתק נעול');
+      } },
+     { label: 'ביטול', ghost: true, run: closeDlg }]);
+}
+function unlockDialog() {
+  dialog('פתיחה לעריכה',
+    '<p>הזן את הסיסמה של הפתק.</p><input type="password" id="pw1" placeholder="סיסמה" autocomplete="current-password" aria-label="סיסמה"><p class="err" id="pwErr" role="alert"></p>',
+    [{ label: 'פתיחה', run: async () => {
+        const L = note.lock, method = (L.hash || '').split(':')[0];
+        const h = await hashPw($('#pw1').value, L.salt, method);
+        if (h !== L.hash) { $('#pwErr').textContent = 'הסיסמה שגויה'; $('#pw1').select(); return; }
+        unlocked = true; updLock(); closeDlg(); toast('הפתק פתוח לעריכה');
+      } },
+     { label: 'ביטול', ghost: true, run: closeDlg }]);
+}
+function manageDialog() {
+  dialog('סיסמה לעריכה',
+    '<p>הפתק פתוח לעריכה עד שתנעל אותו, תעבור לפתק אחר או תסגור את האפליקציה.</p>',
+    [{ label: 'נעילה עכשיו', run: () => { unlocked = false; updLock(); closeDlg(); toast('הפתק נעול'); } },
+     { label: 'הסרת הסיסמה', danger: true, run: () => { note.lock = null; unlocked = false; flush(); updLock(); closeDlg(); toast('הסיסמה הוסרה'); } },
+     { label: 'סגירה', ghost: true, run: closeDlg }]);
+}
+
+// ---------- export (PDF / text) ----------
+let downloads = null, sampler = null;
+if (window.claude && typeof claude.use === 'function') {
+  claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+  claude.use('sample').then(s => { sampler = s; }).catch(() => {});
+}
+function fileBase() {
+  const d = new Date(note.created), p = v => String(v).padStart(2, '0');
+  return 'note-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+function renderPages(n, pxW) {
+  let x0 = 0, x1 = n.pw || W, y1 = 0;
+  for (const s of n.strokes) { const b = s.b || bbox(s); x0 = Math.min(x0, b[0]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+  const docW = x1 - x0, pageH = docW * 297 / 210, pxH = Math.round(pxW * 297 / 210), sc = pxW / docW;
+  const count = Math.max(1, Math.ceil((y1 + 10) / pageH));
+  const keepCi = ci; ci = 0; const out = [];
+  try {
+    for (let i = 0; i < count; i++) {
+      const c = document.createElement('canvas'); c.width = pxW; c.height = pxH;
+      const x = c.getContext('2d'); x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, pxW, pxH);
+      const py0 = i * pageH, py1 = py0 + pageH;
+      x.setTransform(sc, 0, 0, sc, -x0 * sc, -py0 * sc);
+      drawPaper(x, x0, py0, x1, py1, 1.5 / sc, n);
+      const vis = n.strokes.filter(s => s.b[3] >= py0 && s.b[1] <= py1);
+      vis.forEach(s => s.t === 'hl' && renderHL(x, s));
+      vis.forEach(s => s.t !== 'hl' && renderPen(x, s));
+      out.push(c);
+    }
+  } finally { ci = keepCi; }
+  return out;
+}
+// minimal PDF writer: one JPEG per A4 page, no external library
+async function buildPDF(canvases) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const u = typeof x === 'string' ? enc.encode(x) : x; parts.push(u); len += u.length; };
+  const obj = (id, chunks) => { offs[id] = len; push(id + ' 0 obj\n'); for (const c of chunks) push(c); push('\nendobj\n'); };
+  const PW_PT = 595.28, PH_PT = 841.89, n = canvases.length, maxId = 2 + 3 * n;
+  push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10]));
+  obj(1, ['<< /Type /Catalog /Pages 2 0 R >>']);
+  obj(2, ['<< /Type /Pages /Kids [' + canvases.map((_, i) => (3 + 3 * i) + ' 0 R').join(' ') + '] /Count ' + n + ' >>']);
+  for (let i = 0; i < n; i++) {
+    const c = canvases[i], pg = 3 + 3 * i, ct = pg + 1, im = pg + 2;
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+    const jpg = new Uint8Array(await blob.arrayBuffer());
+    const cs = 'q ' + PW_PT + ' 0 0 ' + PH_PT + ' 0 0 cm /Im0 Do Q';
+    obj(pg, ['<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW_PT + ' ' + PH_PT + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + ct + ' 0 R >>']);
+    obj(ct, ['<< /Length ' + cs.length + ' >>\nstream\n' + cs + '\nendstream']);
+    obj(im, ['<< /Type /XObject /Subtype /Image /Width ' + c.width + ' /Height ' + c.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpg.length + ' >>\nstream\n', jpg, '\nendstream']);
+  }
+  const xref = len;
+  let t = 'xref\n0 ' + (maxId + 1) + '\n0000000000 65535 f \n';
+  for (let id = 1; id <= maxId; id++) t += String(offs[id]).padStart(10, '0') + ' 00000 n \n';
+  t += 'trailer\n<< /Size ' + (maxId + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n';
+  push(t);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+async function saveFile(name, data) {
+  if (downloads) {
+    try { await downloads.save({ filename: name, data }); toast('הקובץ נשמר'); return true; }
+    catch (e) {
+      const c = e && e.code;
+      if (c === 'declined') { toast('השמירה בוטלה'); return false; }
+      if (c === 'rate_limited') { toast('אפשר לנסות שוב בעוד רגע'); return false; }
+      if (c === 'too_large') { toast('הקובץ גדול מדי לשמירה'); return false; }
+    }
+  }
+  try {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: 'text/plain;charset=utf-8' });
+    const u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 5000);
+    toast('הקובץ יורד'); return true;
+  } catch (e) { toast('אי אפשר לשמור קבצים בחלון הזה'); return false; }
+}
+async function exportPDF() { return saveFile(fileBase() + '.pdf', await buildPDF(renderPages(note, 1240))); }
+const OCR_PROMPT = n =>
+  'Transcribe the handwriting in the attached image' + (n > 1 ? 's' : '') + '. ' +
+  (n > 1 ? 'They are ' + n + ' consecutive pages of one handwritten note, in order. ' : 'It is one page of a handwritten note. ') +
+  'The writing is most likely Hebrew (right to left) and may include English words, numbers, lists or simple math. ' +
+  'Output ONLY the transcribed text as plain text: keep the line breaks and list structure, no commentary, no markdown, no translation. ' +
+  'Ignore the printed ruled lines or grid and any highlighter background. Write [?] for a word you cannot read. ' +
+  'If there is no handwriting at all, output exactly: (אין טקסט)';
+const OCR_ERR = { not_granted: 'לא ניתן אישור להשתמש ב-Claude בחלון הזה.', sampling_disabled: 'Claude לא זמין בחשבון הזה.', rate_limited: 'יותר מדי בקשות כרגע. אפשר לנסות שוב בעוד כמה דקות.', session_expired: 'צריך להתחבר מחדש ל-Claude.', refused: 'Claude לא הצליח לקרוא את הדף הזה.', empty_completion: 'לא התקבל טקסט. אפשר לנסות שוב.', image_rejected: 'הדף גדול מדי להמרה.' };
+async function exportText() {
+  const lim = sampler ? await sampler.limits().catch(() => null) : null;
+  if (!sampler || !lim || !lim.images) {
+    dialog('המרה לטקסט', '<p>את כתב היד ממיר Claude, ולכן ההמרה עובדת רק כשהאפליקציה פתוחה בתוך Claude: באפליקציית Claude או ב-claude.ai.</p><p>בינתיים אפשר לשמור את הפתק כ-PDF.</p>', [{ label: 'הבנתי', ghost: true, run: closeDlg }]);
+    return;
+  }
+  const all = renderPages(note, 1100), pages = all.slice(0, lim.images.maxCount || 1);
+  const blobs = await Promise.all(pages.map(c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.9))));
+  const ctl = new AbortController();
+  dialog('המרה לטקסט',
+    '<p id="txSt"><span class="spin"></span>Claude קורא את כתב היד…</p><textarea id="txOut" placeholder="הטקסט יופיע כאן" dir="auto" aria-label="הטקסט שהומר"></textarea>',
+    [{ label: 'שמירה כ-.txt', run: () => { const v = $('#txOut').value.trim(); if (v) saveFile(fileBase() + '.txt', v + '\n'); } },
+     { label: 'העתקה', ghost: true, run: async () => { try { await navigator.clipboard.writeText($('#txOut').value); toast('הטקסט הועתק'); } catch (e) { toast('הדפדפן חסם את ההעתקה. אפשר לסמן ולהעתיק ידנית'); } } },
+     { label: 'סגירה', ghost: true, run: () => { ctl.abort(); closeDlg(); } }]);
+  const saveBtn = dlgActs[0].el; saveBtn.disabled = true;
+  try {
+    const r = await sampler(OCR_PROMPT(blobs.length), { images: blobs, signal: ctl.signal, onText: ({ text }) => { const o = $('#txOut'); if (o) o.value = text; } });
+    if (!$('#txOut')) return;
+    $('#txOut').value = r.text.trim();
+    $('#txSt').textContent = 'אפשר לתקן את הטקסט לפני השמירה.' +
+      (all.length > pages.length ? ' הומרו ' + pages.length + ' העמודים הראשונים מתוך ' + all.length + '.' : '') +
+      (r.truncated ? ' הטקסט נקטע באמצע.' : '');
+    saveBtn.disabled = false;
+  } catch (e) {
+    if (!$('#txSt') || (e && e.code === 'cancelled')) return;
+    if (e && e.text) { $('#txOut').value = e.text; saveBtn.disabled = false; }
+    $('#txSt').textContent = OCR_ERR[e && e.code] || 'ההמרה נכשלה. אפשר לנסות שוב.';
+  }
+}
+$('#bExport').onclick = () => {
+  if (!note.strokes.length) { toast('אין עדיין מה לשמור בפתק הזה'); return; }
+  dialog('שמירה כקובץ',
+    '<button class="choice" id="exPdf"><span class="ic pdf">PDF</span><span><b>PDF</b><small>כתב היד כמו שהוא, בעמודי A4 עם הרקע</small></span></button>' +
+    '<button class="choice" id="exTxt"><span class="ic txt">TXT</span><span><b>טקסט</b><small>Claude ממיר את כתב היד לטקסט, ואפשר לתקן לפני השמירה</small></span></button>',
+    [{ label: 'סגירה', ghost: true, run: closeDlg }]);
+  $('#exPdf').onclick = async () => {
+    const b = $('#exPdf'), sm = b.querySelector('small'); b.disabled = true; sm.innerHTML = '<span class="spin"></span>מכין PDF…';
+    try { await exportPDF(); closeDlg(); }
+    catch (e) { b.disabled = false; sm.textContent = 'יצירת ה-PDF נכשלה. אפשר לנסות שוב'; }
+  };
+  $('#exTxt').onclick = exportText;
+};
+
+// ---------- diagnostics ----------
+function info(e, kind) { if (!data.settings.debug) return; lastInfo = { type: e.pointerType, p: e.pressure, b: e.buttons, btn: e.button, tx: e.tiltX, ty: e.tiltY, kind }; dbgSoon(); }
+let dbgRaf = 0;
+function dbgSoon() { if (!dbgRaf) dbgRaf = requestAnimationFrame(() => { dbgRaf = 0; renderDbg(); }); }
+function renderDbg() {
+  if (!data.settings.debug) return;
+  const i = lastInfo || {};
+  const kinds = { down: 'נגיעה', draw: 'כתיבה', hover: 'ריחוף' };
+  $('#dbg').textContent =
+    'קלט: ' + (i.type || '—') + ' · ' + (kinds[i.kind] || '—') + '\n' +
+    'לחץ: ' + (i.p != null ? i.p.toFixed(3) : '—') + '   buttons: ' + (i.b != null ? i.b : '—') + '   button: ' + (i.btn != null ? i.btn : '—') + '\n' +
+    'הטיה: ' + (i.tx != null ? i.tx + '° / ' + i.ty + '°' : '—') + '   קצב: ' + hz + 'Hz\n' +
+    'ריחוף: ' + (hoverSeen ? '✓' : '—') + '   כפתור עט: ' + (btnSeen ? '✓' : '—') + '   השהיה נמוכה: ' + (lowLatency ? '✓' : '—') + '\n' +
+    'כף יד נדחתה: ' + palmCount + '   זום: ' + Math.round(z * 100) + '%   חדות: ' + DPR.toFixed(1) + 'x';
+}
+setInterval(() => { hz = evCount; evCount = 0; renderDbg(); }, 1000);
+
+// ---------- boot ----------
+$('#dbg').style.display = data.settings.debug ? 'block' : 'none';
+recalcMin(); resize(); applyTheme(); updTitle(); updHint(); updPaper(); updLock(); updZoom(); updUndo();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => paintTools());
+// offline support and "install app" when hosted on its own site (e.g. GitHub Pages)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+}
+})();
+</script>
+</body>
+</html>
