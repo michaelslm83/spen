@@ -236,7 +236,8 @@ button{font:inherit;color:inherit}
 const $ = s => document.querySelector(s);
 const stage = $('#stage'), main = $('#main'), over = $('#over');
 const mctx = main.getContext('2d', { desynchronized: true, alpha: false }) || main.getContext('2d');
-const octx = over.getContext('2d', { desynchronized: true }) || over.getContext('2d');
+// The overlay must stay transparent. A desynchronized canvas with alpha shows black on many Android GPUs (Samsung included), so the overlay uses a normal context.
+const octx = over.getContext('2d');
 const lowLatency = !!(mctx.getContextAttributes && mctx.getContextAttributes().desynchronized);
 
 const LINE = 44, TOP = 72, GRID = 28, ER = 16, ZMIN = 0.5, ZMAX = 4;
