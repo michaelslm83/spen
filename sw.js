@@ -1,5 +1,5 @@
 // Offline cache for the S Pen notepad. Bump VERSION on every release so phones pick up the new files.
-const VERSION = 'spen-notepad-v2';
+const VERSION = 'spen-notepad-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
 
 self.addEventListener('install', e => {

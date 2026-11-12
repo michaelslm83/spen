@@ -89,6 +89,14 @@ button{font:inherit;color:inherit}
 #widthPop button{width:52px;height:52px;border:0;border-radius:var(--r-m);background:transparent;display:grid;place-items:center;cursor:pointer}
 #widthPop button.on{background:var(--ink-soft)}
 #widthPop b{display:block;border-radius:50%;background:var(--text)}
+.sw.more i{background:conic-gradient(#E53935,#FB8C00,#FDD835,#43A047,#1E88E5,#8E24AA,#E53935);display:grid;place-items:center}
+.sw.more i b{display:block;width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 2px var(--chrome)}
+#colorPop{bottom:calc(var(--trayH) + env(safe-area-inset-bottom) + 8px);left:50%;transform:translateX(-50%);width:min(340px,calc(100vw - 16px))}
+#colorPop h5{margin:6px 6px 2px;font-size:13px;font-weight:600;color:var(--muted)}
+#colorPop .grid{display:grid;grid-template-columns:repeat(6,1fr)}
+#colorPop .sw{width:100%}
+#colorPop .custom{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 4px 2px;cursor:pointer}
+#colorPop .custom input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 #morePop{top:calc(var(--topH) + env(safe-area-inset-top) + 6px);left:8px;width:min(300px,calc(100% - 16px));padding:6px}
 .mi{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;border:0;background:transparent;border-radius:var(--r-m);padding:0 12px;font-size:16px;cursor:pointer;text-align:right}
 .mi:hover{background:var(--chrome)}
@@ -192,6 +200,7 @@ button{font:inherit;color:inherit}
 
 <div id="scrim"></div>
 <div class="pop" id="widthPop" role="radiogroup" aria-label="עובי קו"></div>
+<div class="pop" id="colorPop" role="dialog" aria-label="עוד צבעים"></div>
 
 <div class="pop" id="morePop" role="menu">
   <div class="mi-paper"><p>סוג נייר</p><div class="segs" id="mPaper"><button data-v="plain">חלק</button><button data-v="lined">שורות</button><button data-v="grid">משובץ</button></div></div>
@@ -215,7 +224,7 @@ button{font:inherit;color:inherit}
   <div class="row"><span>חזרה לעט אחרי מחיקה<small>אחרי מחיקה אחת, הכלי חוזר לעט.</small></span><button class="tg" id="sBack" aria-label="חזרה לעט אחרי מחיקה"></button></div>
   <h4>דף</h4>
   <div class="row"><span>סוג נייר<small>לפתק הזה ולפתקים חדשים.</small></span><div class="segs" id="sPaper"><button data-v="plain">חלק</button><button data-v="lined">שורות</button><button data-v="grid">משובץ</button></div></div>
-  <div class="row"><span>המשך אוטומטי שמאלה<small>כשכותבים ליד הקצה השמאלי, הדף זז שמאלה.</small></span><button class="tg" id="sLeft" aria-label="המשך אוטומטי שמאלה"></button></div>
+  <div class="row"><span>גלילה אוטומטית<small>כשכותבים ליד הקצה השמאלי או התחתון, הדף זז כדי לפנות מקום.</small></span><button class="tg" id="sLeft" aria-label="גלילה אוטומטית"></button></div>
   <h4>תצוגה</h4>
   <div class="row"><span>חדות המסך<small>נמוכה מהירה יותר. גבוהה חדה יותר.</small></span><div class="segs" id="sRes"><button data-v="low">נמוכה</button><button data-v="normal">רגילה</button><button data-v="high">גבוהה</button></div></div>
   <div class="row"><span>ערכת נושא</span><div class="segs" id="sTheme"><button data-v="auto">אוטומטית</button><button data-v="light">בהירה</button><button data-v="dark">כהה</button></div></div>
@@ -244,20 +253,35 @@ const LINE = 44, TOP = 72, GRID = 28, ER = 16, ZMIN = 0.5, ZMAX = 4;
 const COLORS = { ink: ['#1F2329', '#ECEEF2'], blue: ['#27348B', '#9DAEFF'], red: ['#C62828', '#FF8A80'], green: ['#2E7D4F', '#7BD8A0'] };
 const HL = { y: ['#FFD43B', '#C9A51F'], g: ['#8CE99A', '#3F9B5A'], p: ['#FFA8C5', '#B4577A'], b: ['#91C9FF', '#3F78B4'] };
 const COLOR_NAMES = { ink: 'שחור', blue: 'כחול', red: 'אדום', green: 'ירוק', y: 'צהוב', g: 'ירוק', p: 'ורוד', b: 'תכלת' };
+// extra colors in the "more colors" panel; strokes store these (and custom picks) as hex
+const PEN_MORE = ['#000000', '#4A4F57', '#8A9099', '#6D4C41', '#B71C1C', '#E53935', '#F4511E', '#FB8C00', '#F9A825', '#7CB342', '#2E7D32', '#00897B', '#00ACC1', '#1E88E5', '#1A237E', '#5E35B1', '#8E24AA', '#D81B60'];
+const HL_MORE = ['#FFF176', '#FFD54F', '#FFB74D', '#FF8A65', '#EF9A9A', '#F48FB1', '#CE93D8', '#B39DDB', '#9FA8DA', '#90CAF9', '#80DEEA', '#80CBC4', '#A5D6A7', '#C5E1A5', '#E6EE9C', '#FFCC80', '#BCAAA4', '#B0BEC5'];
 const WIDTHS = [1.5, 2.5, 4, 6];
 const PAPER = ['#FCFCFA', '#16181C'], RULE = ['#D3DDEB', '#2B3442'], GRIDC = ['#E3E8EF', '#252B33'], MARGIN = ['#EBB0AE', '#5A3236'];
 const PAPER_NAMES = { plain: 'נייר חלק', lined: 'שורות', grid: 'משובץ' };
 const KEY = 'spen-notepad-v1';
 
 let W = 0, H = 0, DPR = 1, ci = 0, R = { x: 0, y: 0 };
+const isHex = c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+// in dark theme, very dark custom colors are lightened so they stay visible on the dark page
+function forDark(hex) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255;
+  if ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 >= 0.35) return hex;
+  const f = v => Math.round(v + (255 - v) * 0.55); return 'rgb(' + f(r) + ' ' + f(g) + ' ' + f(b) + ')';
+}
+const penCol = c => isHex(c) ? (ci ? forDark(c) : c) : (COLORS[c] || COLORS.ink)[ci];
+const hlCol = c => isHex(c) ? c : (HL[c] || HL.y)[ci];
 
 // ---------- data ----------
 let data = null;
 function newNote() { const t = Date.now(); return { id: 'n' + t + Math.random().toString(36).slice(2, 6), created: t, updated: t, strokes: [], paper: (data && data.settings.paper) || 'lined', view: null, pw: W || 0 }; }
 function load() { try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.notes)) return d; } catch (e) {} return null; }
 data = load() || { notes: [], cur: 0 };
-data.settings = Object.assign({ theme: 'auto', finger: false, debug: false, curve: 1, paper: 'lined', btn: 'hold', eraser: 'stroke', res: 'normal', autoLeft: true, backToPen: false }, data.settings || {});
+data.settings = Object.assign({ theme: 'auto', finger: false, debug: false, curve: 1, paper: 'lined', btn: 'hold', eraser: 'stroke', res: 'normal', autoScroll: false, backToPen: false }, data.settings || {});
+delete data.settings.autoLeft;   // old setting: the page used to jump after strokes near the edge; now off unless turned on
 data.tool = Object.assign({ color: 'ink', hl: 'y', width: 2.5, mode: 'pen' }, data.tool || {});
+if (!COLORS[data.tool.color] && !isHex(data.tool.color)) data.tool.color = 'ink';
+if (!HL[data.tool.hl] && !isHex(data.tool.hl)) data.tool.hl = 'y';
 if (!WIDTHS.includes(data.tool.width)) data.tool.width = WIDTHS.reduce((a, b) => Math.abs(b - data.tool.width) < Math.abs(a - data.tool.width) ? b : a);
 if (!data.notes.length) data.notes.push(newNote());
 if (!(data.cur >= 0 && data.cur < data.notes.length)) data.cur = 0;
@@ -359,8 +383,8 @@ function pathOf(s, cache = true) {
   if (!cache) return s.t === 'hl' ? hlPath(s) : buildOutline(s);
   let P = pathCache.get(s); if (!P) { P = s.t === 'hl' ? hlPath(s) : buildOutline(s); pathCache.set(s, P); } return P;
 }
-const inkOf = s => (COLORS[s.c] || COLORS.ink)[ci];
-const hlOf = s => (HL[s.c] || HL.y)[ci];
+const inkOf = s => penCol(s.c);
+const hlOf = s => hlCol(s.c);
 function renderPen(ctx, s, cache) { ctx.fillStyle = inkOf(s); ctx.fill(pathOf(s, cache)); }
 function renderHL(ctx, s, cache) {
   ctx.save(); ctx.globalAlpha = ci ? 0.5 : 0.45; ctx.strokeStyle = hlOf(s);
@@ -512,10 +536,10 @@ function finishAct(chained, e) {
   bbox(s); note.strokes.push(s); pushUndo({ type: 'add', s });
   if (s.t === 'hl') redraw(); else { viewT(mctx); renderPen(mctx, s); }
   touchNote();
-  if (chained || s.t !== 'pen') return;
+  if (chained || s.t !== 'pen' || !data.settings.autoScroll) return;
   let tx = ox, ty = oy;
   const leftOnScreen = (s.b[0] - ox) * z, bottomOnScreen = (s.b[3] - oy) * z;
-  if (data.settings.autoLeft && leftOnScreen < W * 0.12) tx = s.b[0] - (W * 0.6) / z;
+  if (leftOnScreen < W * 0.12) tx = s.b[0] - (W * 0.6) / z;
   if (bottomOnScreen > H * 0.82) ty = s.b[3] - (H * 0.55) / z;
   if (tx !== ox || ty !== oy) { cmin = Math.min(cmin, tx); animateView(tx, ty); }
 }
@@ -608,7 +632,7 @@ function hover(cx, cy, erase) {
   if (erase || data.tool.mode === 'erase') { ring(cx, cy); return; }
   const t = data.tool, hl = t.mode === 'hl';
   octx.globalAlpha = hl ? 0.5 : 0.75;
-  octx.fillStyle = hl ? HL[t.hl][ci] : COLORS[t.color][ci];
+  octx.fillStyle = hl ? hlCol(t.hl) : penCol(t.color);
   octx.beginPath(); octx.arc(x, y, Math.max(1.5, (hl ? t.width * 2.5 : t.width * 0.7) * z), 0, 7); octx.fill();
   octx.globalAlpha = 1;
 }
@@ -683,8 +707,8 @@ function setMode(m) { if (m !== 'erase') data.tool.prev = m; else if (data.tool.
 function paintTools() {
   const t = data.tool, hl = t.mode === 'hl', er = t.mode === 'erase';
   for (const [id, m] of [['#bPen', 'pen'], ['#bHL', 'hl'], ['#bEr', 'erase']]) { const b = $(id); b.classList.toggle('on', t.mode === m); b.setAttribute('aria-checked', t.mode === m); }
-  $('#penTip').setAttribute('fill', COLORS[t.color][ci]);
-  $('#hlTip').setAttribute('fill', HL[t.hl][ci]);
+  $('#penTip').setAttribute('fill', penCol(t.color));
+  $('#hlTip').setAttribute('fill', hlCol(t.hl));
   const pal = $('#palette'); pal.innerHTML = ''; pal.style.display = er ? 'none' : 'flex';
   $('#bWidth').style.display = er ? 'none' : ''; $('#erSeg').style.display = er ? 'flex' : 'none';
   const set = hl ? HL : COLORS, curC = hl ? t.hl : t.color;
@@ -695,8 +719,14 @@ function paintTools() {
     b.onclick = () => { if (hl) t.hl = c; else { t.color = c; if (t.mode !== 'pen') setMode('pen'); } paintTools(); save(); };
     pal.appendChild(b);
   }
+  if (!er) {
+    const custom = isHex(curC), m = document.createElement('button');
+    m.className = 'sw more' + (custom ? ' on' : ''); m.setAttribute('aria-label', 'עוד צבעים'); m.setAttribute('aria-haspopup', 'dialog');
+    m.innerHTML = '<i><b style="' + (custom ? 'background:' + (hl ? hlCol(curC) : penCol(curC)) : 'display:none') + '"></b></i>';
+    m.onclick = openColorPop; pal.appendChild(m);
+  }
   const d = Math.max(4, Math.min(18, (hl ? t.width * 2.4 : t.width * 2.4)));
-  const wb = $('#bWidth b'); wb.style.width = wb.style.height = d + 'px'; wb.style.background = hl ? HL[t.hl][ci] : COLORS[t.color][ci];
+  const wb = $('#bWidth b'); wb.style.width = wb.style.height = d + 'px'; wb.style.background = hl ? hlCol(t.hl) : penCol(t.color);
   document.querySelectorAll('#erSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === data.settings.eraser));
 }
 $('#bPen').onclick = () => setMode('pen');
@@ -709,7 +739,7 @@ $('#bWidth').onclick = () => {
   const hl = data.tool.mode === 'hl';
   for (const w of WIDTHS) {
     const b = document.createElement('button'); b.className = w === data.tool.width ? 'on' : ''; b.setAttribute('aria-label', 'עובי ' + w);
-    const d = Math.max(3, Math.min(20, hl ? w * 2.4 : w * 2)); b.innerHTML = '<b style="width:' + d + 'px;height:' + d + 'px;background:' + (hl ? HL[data.tool.hl][ci] : COLORS[data.tool.color][ci]) + '"></b>';
+    const d = Math.max(3, Math.min(20, hl ? w * 2.4 : w * 2)); b.innerHTML = '<b style="width:' + d + 'px;height:' + d + 'px;background:' + (hl ? hlCol(data.tool.hl) : penCol(data.tool.color)) + '"></b>';
     b.onclick = () => { data.tool.width = w; paintTools(); save(); closePops(); };
     pop.appendChild(b);
   }
@@ -727,7 +757,39 @@ $('#bUndo').onclick = undo; $('#bRedo').onclick = redo;
 $('#bZoom').onclick = () => { stopAnim(); const cy = oy + H / z / 2; setView(1, PW() - W, cy - H / 2); save(); };
 function setPaper(v) { if (isLocked()) { lockedNudge(); return; } note.paper = v; data.settings.paper = v; updPaper(); redraw(); save(); }
 document.querySelectorAll('#mPaper button').forEach(b => b.onclick = () => { setPaper(b.dataset.v); });
-function closePops() { $('#widthPop').classList.remove('on'); $('#morePop').classList.remove('on'); if (!$('#drawer').classList.contains('on') && !$('#settings').classList.contains('on')) $('#scrim').classList.remove('on', 'clear'); }
+function pickColor(c) {
+  const t = data.tool, hl = t.mode === 'hl', key = hl ? 'recentHl' : 'recentPen';
+  t[key] = [c, ...(t[key] || []).filter(x => x.toLowerCase() !== c.toLowerCase())].slice(0, 6);
+  if (hl) t.hl = c; else { t.color = c; if (t.mode !== 'pen') setMode('pen'); }
+  paintTools(); save();
+}
+function openColorPop() {
+  const pop = $('#colorPop'); if (pop.classList.contains('on')) { closePops(); return; }
+  closePops(); pop.innerHTML = '';
+  const t = data.tool, hl = t.mode === 'hl', cur = hl ? t.hl : t.color, col = hl ? hlCol : penCol;
+  const section = (title, list) => {
+    if (!list.length) return;
+    const h = document.createElement('h5'); h.textContent = title; pop.appendChild(h);
+    const g = document.createElement('div'); g.className = 'grid'; g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', title);
+    for (const c of list) {
+      const on = isHex(cur) && c.toLowerCase() === cur.toLowerCase(), b = document.createElement('button');
+      b.className = 'sw' + (on ? ' on' : ''); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', on); b.setAttribute('aria-label', c);
+      b.innerHTML = '<i style="background:' + col(c) + '"></i>';
+      b.onclick = () => { pickColor(c); closePops(); };
+      g.appendChild(b);
+    }
+    pop.appendChild(g);
+  };
+  section('אחרונים', (t[hl ? 'recentHl' : 'recentPen'] || []).filter(isHex));
+  section(hl ? 'צבעי מרקר' : 'צבעים', hl ? HL_MORE : PEN_MORE);
+  const lab = document.createElement('label'); lab.className = 'btn ghost custom'; lab.textContent = 'צבע מותאם אישית…';
+  const inp = document.createElement('input'); inp.type = 'color'; inp.setAttribute('aria-label', 'צבע מותאם אישית');
+  inp.value = isHex(cur) ? cur.toLowerCase() : (hl ? '#fff176' : '#1e88e5');
+  inp.onchange = () => { pickColor(inp.value); closePops(); };
+  lab.appendChild(inp); pop.appendChild(lab);
+  pop.classList.add('on'); $('#scrim').classList.add('on', 'clear');
+}
+function closePops() { $('#colorPop').classList.remove('on'); $('#widthPop').classList.remove('on'); $('#morePop').classList.remove('on'); if (!$('#drawer').classList.contains('on') && !$('#settings').classList.contains('on')) $('#scrim').classList.remove('on', 'clear'); }
 function closeAll() { $('#drawer').classList.remove('on'); $('#settings').classList.remove('on'); closePops(); $('#scrim').classList.remove('on', 'clear'); }
 $('#scrim').onclick = closeAll;
 $('#bMore').onclick = () => {
@@ -817,7 +879,7 @@ const painters = [
   segBind('#sRes', () => data.settings.res, v => { data.settings.res = v; resize(); }),
   segBind('#sTheme', () => data.settings.theme, v => { data.settings.theme = v; applyTheme(); }),
 ];
-const toggles = { '#sFinger': 'finger', '#sDebug': 'debug', '#sLeft': 'autoLeft', '#sBack': 'backToPen' };
+const toggles = { '#sFinger': 'finger', '#sDebug': 'debug', '#sLeft': 'autoScroll', '#sBack': 'backToPen' };
 function paintSettings() {
   painters.forEach(f => f());
   for (const [id, k] of Object.entries(toggles)) { $(id).classList.toggle('on', !!data.settings[k]); $(id).setAttribute('aria-pressed', !!data.settings[k]); }
